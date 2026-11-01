@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <base href="./">
+  <title>Offline Edge AI Voice Agent | 100% On-Device Sovereign Voice Assistant</title>
+  <meta name="description" content="A 100% offline, sovereign conversational voice assistant running client-side SLMs via WebGPU, Web Speech API, and OPFS caching. Zero cloud packets.">
+  <meta name="theme-color" content="#08090f">
+
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg viewBox="0 0 100 100" width="28" height="28">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="#00f5d4" stroke-width="6"/>
+            <circle cx="50" cy="50" r="24" fill="#7928ca" opacity="0.6"/>
+            <path d="M 30 50 Q 40 32 50 50 T 70 50" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-title">AURA <span class="badge-edge">EDGE AI</span></h1>
+          <p class="logo-subtitle">Sovereign Offline Voice Agent</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Engine & Air-Gap Badge -->
+    <div class="header-center">
+      <div class="model-badge-container">
+        <label for="model-select" class="control-label-mini">INFERENCE ENGINE</label>
+        <select id="model-select" class="select-model">
+          <option value="instant" selected>⚡ Instant Neural Engine (Zero Download, 0 MB)</option>
+          <option value="HuggingFaceTB/SmolLM-135M-Instruct">SmolLM-135M-Instruct (Quantized ONNX, ~80 MB)</option>
+          <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5-0.5B-Instruct (Quantized ONNX, ~350 MB)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div id="network-badge" class="status-tag online" title="Active Air-Gap & Zero-Leak Isolation Monitor">
+        ● AIR-GAP ENFORCED (0 LEAK)
+      </div>
+      <button id="btn-verify-airgap" class="btn-action-sm" title="Run diagnostic test confirming zero cloud packets">
+        🛡 Verify Air-Gap
+      </button>
+    </div>
+  </header>
+
+  <!-- Telemetry HUD Bar -->
+  <div class="telemetry-bar">
+    <div class="hud-item">
+      <span class="hud-label">EXECUTION BACKEND</span>
+      <span id="hud-backend" class="hud-value highlight">Instant Neural (Zero-Wait)</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">INFERENCE SPEED</span>
+      <span id="hud-tps" class="hud-value neon-cyan">0.0 tok/s</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">TIME TO FIRST TOKEN</span>
+      <span id="hud-ttft" class="hud-value neon-violet">0 ms</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">TOTAL TOKENS</span>
+      <span id="hud-tokens" class="hud-value">0 tok</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">HARDWARE ACCEL</span>
+      <span id="hud-gpu" class="hud-value">Detecting...</span>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="main-layout">
+    <!-- Center: Voice Stage & 3D Reactive Orb -->
+    <section class="stage-section">
+      <div class="orb-container">
+        <!-- Status Pill -->
+        <div id="status-pill" class="status-pill idle">
+          <span class="status-dot"></span>
+          <span id="status-text">Offline & Ready</span>
+        </div>
+
+        <!-- 3D Voice-Reactive Canvas -->
+        <canvas id="orb-canvas" width="460" height="460"></canvas>
+
+        <!-- Dynamic VU Meter -->
+        <div class="vu-meter-container" title="Live Microphone Audio Input Level">
+          <div id="vu-meter-bar" class="vu-meter-bar"></div>
+        </div>
+
+        <!-- Live Caption Floating Readout -->
+        <div id="live-caption-container" class="live-caption-container">
+          <span id="live-speech-role" class="caption-role">You</span>
+          <span id="live-speech-text" class="caption-text">Press the microphone or Spacebar to speak...</span>
+        </div>
+      </div>
+
+      <!-- Voice Interaction Controls -->
+      <div class="voice-controls-bar">
+        <button id="btn-mic" class="btn-voice-primary" title="Click to speak (or hold Spacebar)">
+          <span class="mic-icon">🎙</span>
+          <span class="mic-label">Speak</span>
+        </button>
+
+        <button id="btn-continuous" class="btn-voice-secondary" title="Continuous listening mode for hands-free conversation">
+          <span class="control-icon">♾</span>
+          <span>Continuous</span>
+        </button>
+
+        <button id="btn-interrupt" class="btn-voice-secondary" title="Interrupt current speech output (Escape)">
+          <span class="control-icon">⏹</span>
+          <span>Interrupt</span>
+        </button>
+
+        <button id="btn-mute" class="btn-voice-secondary" title="Mute text-to-speech output (M)">
+          <span class="control-icon">🔊</span>
+          <span>Mute</span>
+        </button>
+      </div>
+
+      <!-- Keyboard Text Input Fallback -->
+      <div class="text-input-bar">
+        <input type="text" id="text-prompt-input" placeholder="Type a message or question (offline keyboard fallback)..." autocomplete="off" spellcheck="false">
+        <button id="btn-send-text" class="btn-send" title="Send text prompt (Enter)">
+          <span>Send</span>
+          <span class="kbd-hint">↵</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Side Workspace: Tabs & Diagnostics -->
+    <aside class="workspace-section">
+      <!-- Tab Header -->
+      <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="transcript">Transcript</button>
+        <button class="tab-btn" data-tab="airgap">Air-Gap Monitor</button>
+        <button class="tab-btn" data-tab="persona">Persona & Prompts</button>
+        <button class="tab-btn" data-tab="settings">Voice & Cache</button>
+      </nav>
+
+      <!-- Tab 1: Live Conversation Transcript -->
+      <div id="tab-transcript" class="tab-panel active">
+        <div class="panel-header">
+          <h2 class="panel-title">Session Transcript</h2>
+          <div class="panel-actions">
+            <button id="btn-export-md" class="btn-action-sm" title="Export conversation as Markdown">.MD</button>
+            <button id="btn-export-json" class="btn-action-sm" title="Export conversation as JSON">.JSON</button>
+            <button id="btn-clear-transcript" class="btn-action-sm danger" title="Clear conversation history">Clear</button>
+          </div>
+        </div>
+        <div id="transcript-list" class="transcript-scroll">
+          <div class="empty-transcript">
+            <p>No conversation turns yet. Click <strong>Speak</strong> or press <kbd>Space</kbd> to converse with your offline agent.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Air-Gap Verification & Network Monitor -->
+      <div id="tab-airgap" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Air-Gap Packet Inspector</h2>
+            <p class="panel-subtitle">Verifies zero HTTP/WebSocket/fetch packets leave browser during inference</p>
+          </div>
+          <span id="packet-count-badge" class="badge-mini">0 Packets</span>
+        </div>
+
+        <!-- Airplane Mode Simulation Banner -->
+        <div class="airplane-mode-card">
+          <div class="airplane-info">
+            <strong>Airplane Mode Simulation</strong>
+            <p>Forces strict rejection of all outbound fetch/XHR calls to simulate full physical disconnect.</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-airplane-mode">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Packet Inspection Table -->
+        <div class="table-container">
+          <table class="packet-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Destination URL</th>
+                <th>Status</th>
+                <th>Isolation</th>
+              </tr>
+            </thead>
+            <tbody id="packet-log-body">
+              <tr>
+                <td colspan="5" class="empty-table">No network packets observed. Complete air-gap isolation active.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-footer">
+          <button id="btn-clear-packets" class="btn-action-sm">Clear Packet Log</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Persona & System Prompts -->
+      <div id="tab-persona" class="tab-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Agent Personality & Memory</h2>
+        </div>
+
+        <div class="form-group">
+          <label for="persona-select" class="form-label">Active Personality Preset</label>
+          <select id="persona-select" class="form-select">
+            <option value="aura" selected>Aura — Empathetic Edge Companion (Warm & Intuitive)</option>
+            <option value="nexus">Nexus — Edge Systems Architect (Technical & Analytical)</option>
+            <option value="cipher">Cipher — Cyberpunk Terminal Operative (Encrypted & Cryptic)</option>
+            <option value="echo">Echo — Deep Philosophical Thinker (Reflective & Cosmic)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="system-prompt-input" class="form-label">System Prompt & Directives</label>
+          <textarea id="system-prompt-input" class="form-textarea" rows="4" placeholder="Enter custom instructions or personality directives...">You are Aura, an empathetic, intuitive edge AI assistant running 100% offline inside the user’s browser. You speak with natural warmth, thoughtful cadence, and poetic clarity.</textarea>
+        </div>
+
+        <div class="info-callout">
+          <strong>🧠 Ephemeral Memory Retention</strong>
+          <p>Context and entities are maintained locally in browser memory for multi-turn conversations. No data is ever transmitted or logged remotely.</p>
+        </div>
+      </div>
+
+      <!-- Tab 4: Voice Tuning & Cache Management -->
+      <div id="tab-settings" class="tab-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Voice Synthesis & Model Storage</h2>
+        </div>
+
+        <!-- Voice Selection -->
+        <div class="form-group">
+          <label for="voice-select" class="form-label">Speech Synthesis Voice</label>
+          <select id="voice-select" class="form-select">
+            <option value="">Default System Voice</option>
+          </select>
+        </div>
+
+        <!-- Sliders -->
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <div class="label-with-value">
+              <label class="form-label">Speech Rate</label>
+              <span id="rate-val" class="value-badge">1.0x</span>
+            </div>
+            <input type="range" id="slider-rate" min="0.6" max="1.6" step="0.1" value="1.0" class="form-range">
+          </div>
+
+          <div class="form-group flex-1">
+            <div class="label-with-value">
+              <label class="form-label">Pitch</label>
+              <span id="pitch-val" class="value-badge">1.0</span>
+            </div>
+            <input type="range" id="slider-pitch" min="0.6" max="1.4" step="0.1" value="1.0" class="form-range">
+          </div>
+
+          <div class="form-group flex-1">
+            <div class="label-with-value">
+              <label class="form-label">Volume</label>
+              <span id="volume-val" class="value-badge">100%</span>
+            </div>
+            <input type="range" id="slider-volume" min="0" max="1" step="0.05" value="1.0" class="form-range">
+          </div>
+        </div>
+
+        <!-- Cache Storage & OPFS Management -->
+        <div class="cache-management-card">
+          <div class="cache-header">
+            <div>
+              <strong>OPFS & Browser Cache Storage</strong>
+              <p>Downloaded ONNX models are stored locally for instant subsequent boots.</p>
+            </div>
+            <span id="cached-size-label" class="badge-mini">Calculating...</span>
+          </div>
+          <button id="btn-clear-cache" class="btn-action-sm danger">Purge Cached Models</button>
+        </div>
+
+        <div class="info-callout">
+          <strong>⚡ Streaming Speech Synthesis</strong>
+          <p>Tokens from the inference engine are split into sentence chunks and dispatched immediately to audio synthesis, minimizing Time-To-First-Speech to milliseconds.</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Model Download Progress Modal -->
+  <div id="model-progress-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="modal-title">Caching Edge Model Weights</h3>
+      <p id="model-progress-subtext" class="modal-subtitle">Retrieving quantized model components to OPFS / Cache Storage...</p>
+      <div class="progress-track">
+        <div id="model-progress-bar" class="progress-fill" style="width: 0%"></div>
+      </div>
+      <div class="progress-meta">
+        <span id="model-progress-text">0% - Preparing</span>
+        <span class="cached-note">Stored offline for future visits</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Air-Gap Audit Verification Modal -->
+  <div id="airgap-cert-modal" class="modal-overlay">
+    <div class="modal-box cert-modal">
+      <div class="modal-top">
+        <h3 class="modal-title">Air-Gap Security Certificate</h3>
+        <button id="btn-close-cert" class="btn-close">&times;</button>
+      </div>
+      <div id="cert-details">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span>100% Sovereign Edge Architecture</span>
+      <span class="separator">•</span>
+      <span>WebGPU Accelerated</span>
+      <span class="separator">•</span>
+      <span>Zero Cloud Telemetry</span>
+    </div>
+    <div class="footer-right">
+      <span class="footer-shortcuts"><kbd>Space</kbd> Mic <kbd>Esc</kbd> Interrupt <kbd>M</kbd> Mute <kbd>/</kbd> Text</span>
+    </div>
+  </footer>
+
+  <!-- Application Logic (ES Modules) -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
